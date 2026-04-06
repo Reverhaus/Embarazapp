@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestación Familiar - Control de Embarazo</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#f472b6">
+    
+    <!-- Optimizaciones PWA para Smartphones / iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Gestación">
+    <link rel="apple-touch-icon" href="icon.svg">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #f472b6; --bg: #fafafb; }
+        body { background-color: var(--bg); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1f2937; }
+        .card { background: white; border-radius: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb; }
+        .progress-ring { transition: stroke-dashoffset 0.6s ease; transform: rotate(-90deg); transform-origin: 50% 50%; }
+        .modal { transition: opacity 0.25s ease; }
+        .modal-active { overflow: hidden; }
+        
+        /* Animación para el banner de instalación */
+        #installBanner { transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    </style>
+</head>
+<body class="min-h-screen pb-10">
+    
+    <!-- Banner de Instalación -->
+    <div id="installBanner" class="fixed bottom-0 left-0 right-0 p-4 z-50 translate-y-full pointer-events-none">
+        <div class="max-w-md mx-auto bg-slate-900 text-white p-4 rounded-2xl shadow-2xl flex items-center justify-between border border-slate-700 pointer-events-auto">
+            <div class="flex items-center gap-3">
+                <div class="text-2xl bg-pink-500 w-10 h-10 flex items-center justify-center rounded-xl">👶</div>
+                <div>
+                    <p class="text-sm font-bold">Instalar App</p>
+                    <p class="text-[10px] text-slate-400">Acceso rápido y modo offline</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button id="btnCancelInstall" class="px-3 py-1 text-xs font-bold text-slate-400 hover:text-white">Ahora no</button>
+                <button id="btnInstall" class="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white text-xs font-bold rounded-lg transition-colors">Instalar</button>
+            </div>
+        </div>
+    </div>
+
+    <header class="bg-white border-b border-gray-200 py-4 px-6 mb-8 sticky top-0 z-10">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <span class="text-pink-500 text-2xl">🍼</span> Gestación Familiar
+            </h1>
+            <div class="flex flex-col items-end">
+                <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-right">Fecha Última Regla (FUR)</span>
+                <input type="date" id="dateInput" class="text-sm font-medium border-none p-0 focus:ring-0 cursor-pointer text-pink-600 bg-transparent text-right">
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 space-y-6">
+        <!-- Dashboard Principal -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="card p-6 flex items-center gap-6">
+                <div class="relative w-28 h-28 flex-shrink-0">
+                    <svg class="w-full h-full" viewBox="0 0 100 100">
+                        <circle class="text-gray-100 stroke-current" stroke-width="8" cx="50" cy="50" r="42" fill="transparent"></circle>
+                        <circle id="progressCircle" class="text-pink-500 stroke-current progress-ring" stroke-width="8" stroke-linecap="round" cx="50" cy="50" r="42" fill="transparent" stroke-dasharray="263.9" stroke-dashoffset="263.9"></circle>
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span id="weeksNumber" class="text-3xl font-black">0</span>
+                        <span class="text-[9px] font-bold text-gray-400 uppercase tracking-tight text-center">Semanas de<br>Gestación</span>
+                    </div>
+                </div>
+                <div>
+                    <h2 id="trimesterName" class="text-lg font-bold text-gray-800 tracking-tight">Cargando...</h2>
+                    <p id="daysInfo" class="text-sm text-gray-500 mb-2 italic">--</p>
+                    <p class="text-xs text-gray-400">Fecha Probable de Parto (FPP):</p>
+                    <p id="dueDate" class="text-sm font-bold text-blue-600">--</p>
+                </div>
+            </div>
+
+            <div class="card p-6 flex items-center gap-6 bg-gradient-to-br from-white to-pink-50">
+                <div id="babyEmoji" class="text-5xl bg-white w-20 h-20 flex items-center justify-center rounded-full shadow-sm">🌱</div>
+                <div>
+                    <p class="text-[10px] font-bold text-pink-400 uppercase tracking-wider">Tamaño Comparativo</p>
+                    <p id="babySizeText" class="text-xl font-bold text-gray-800">Cargando...</p>
+                    <p id="babySpecs" class="text-xs text-gray-500 mt-1">--</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráfica de Crecimiento -->
+        <div class="card p-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
+                <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Curva de crecimiento fetal</h3>
+                <div id="currentMarkerLabel" class="hidden whitespace-nowrap bg-pink-500 text-white px-3 py-1.5 rounded-lg shadow-sm border border-pink-400">
+                    <span class="text-[10px] font-bold uppercase tracking-tight">Estás aquí:</span>
+                    <span id="currentMarkerVal" class="text-xs font-black ml-1">--</span>
+                    <span class="text-[10px] font-bold">cm</span>
+                </div>
+            </div>
+            <div class="h-64 sm:h-56">
+                <canvas id="growthChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Hitos Médicos -->
+        <div class="card p-6">
+            <h3 class="text-xs font-bold text-gray-400 uppercase mb-4 tracking-wider">Hitos Médicos (Pulsa para detalles)</h3>
+            <div id="milestonesList" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+        </div>
+
+        <!-- Sección Informativa -->
+        <div class="bg-slate-900 text-white rounded-2xl p-8 space-y-6 shadow-xl border border-slate-800">
+            <h2 class="text-xl font-bold">Guía para la conversación familiar 💬</h2>
+            <div id="infoSection" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="space-y-3">
+                    <p class="text-pink-400 text-[10px] font-black uppercase tracking-widest border-b border-pink-900/30 pb-1">Desarrollo biológico</p>
+                    <p id="biologicalFact" class="text-sm leading-relaxed text-slate-200">Cargando...</p>
+                </div>
+                <div class="space-y-3">
+                    <p class="text-blue-400 text-[10px] font-black uppercase tracking-widest border-b border-blue-900/30 pb-1">Temas de charla</p>
+                    <p id="conversationTip" class="text-sm leading-relaxed text-slate-300 italic font-serif">Cargando...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal -->
+    <div id="milestoneModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none modal">
+        <div class="bg-white rounded-2xl max-w-md w-full p-8 relative shadow-2xl">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- Registro de Service Worker ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW registrado'))
+                    .catch(err => console.log('Error SW', err));
+            });
+        }
+
+        // --- Lógica de Instalación (PWA) ---
+        let deferredPrompt;
+        const installBanner = document.getElementById('installBanner');
+        const btnInstall = document.getElementById('btnInstall');
+        const btnCancelInstall = document.getElementById('btnCancelInstall');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            setTimeout(() => {
+                installBanner.style.transform = 'translateY(0)';
+            }, 3000);
+        });
+
+        btnInstall.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
+                installBanner.style.transform = 'translateY(100%)';
+            }
+        });
+
+        btnCancelInstall.addEventListener('click', () => {
+            installBanner.style.transform = 'translateY(100%)';
+        });
+
+        // --- Datos y Configuración ---
+        const milestonesInfo = {
+            12: { title: "Ecografía Primer Trimestre", desc: "Se realiza el cribado del primer trimestre. Mide el pliegue nucal y confirma la vitalidad del feto.", wiki: "https://es.wikipedia.org/wiki/Ecograf%C3%ADa_obst%C3%A9trica" },
+            20: { title: "Eco Morfológica", desc: "La ecografía más detallada. Se revisan todos los órganos y estructuras para asegurar un desarrollo correcto.", wiki: "https://es.wikipedia.org/wiki/Diagn%C3%B3stico_prenatal" },
+            24: { title: "Test de O'Sullivan", desc: "Prueba de glucosa para detectar posible diabetes gestacional. Es fundamental para el control metabólico.", wiki: "https://es.wikipedia.org/wiki/Test_de_O%27Sullivan" },
+            35: { title: "Prueba Estreptococo", desc: "Exudado para detectar la bacteria Estreptococo grupo B de cara al momento del parto.", wiki: "https://es.wikipedia.org/wiki/Streptococcus_agalactiae" }
+        };
+
+        const pregnancyData = [
+            { week: 0, size: 0 },
+            { week: 4, size: 0.1, weight: 0.1, object: "Semilla de amapola", emoji: "🌱", fact: "Implantación del embrión.", talk: "Pregunta por síntomas iniciales." },
+            { week: 8, size: 1.6, weight: 1, object: "Frambuesa", emoji: "🍓", fact: "El corazón ya late.", talk: "Primera visita a la matrona." },
+            { week: 12, size: 5.4, weight: 14, object: "Limón", emoji: "🍋", fact: "Órganos formados.", talk: "Ecografía del primer trimestre." },
+            { week: 16, size: 11.6, weight: 100, object: "Aguacate", emoji: "🥑", fact: "Feto succiona y traga.", talk: "Recuperación de energía." },
+            { week: 20, size: 16.4, weight: 300, object: "Plátano", emoji: "🍌", fact: "Ecuador del embarazo.", talk: "Ecografía morfológica." },
+            { week: 24, size: 30, weight: 600, object: "Maíz", emoji: "🌽", fact: "Pulmones preparándose.", talk: "Prueba del azúcar." },
+            { week: 28, size: 37.6, weight: 1000, object: "Berenjena", emoji: "🍆", fact: "Ojos se abren.", talk: "Ganancia de peso rápida." },
+            { week: 32, size: 42.4, weight: 1700, object: "Calabaza", emoji: "🎃", fact: "Movimientos respiratorios.", talk: "¿Está de cabeza?" },
+            { week: 36, size: 47.4, weight: 2600, object: "Melón", emoji: "🍈", fact: "Sistema digestivo listo.", talk: "¿Bolsa del hospital lista?" },
+            { week: 40, size: 51.2, weight: 3500, object: "Sandía", emoji: "🍉", fact: "Listo para nacer.", talk: "¿Cómo te sientes hoy?" }
+        ];
+
+        // --- Referencias DOM ---
+        const dateInput = document.getElementById('dateInput');
+        const weeksNumber = document.getElementById('weeksNumber');
+        const progressCircle = document.getElementById('progressCircle');
+        const trimesterName = document.getElementById('trimesterName');
+        const daysInfo = document.getElementById('daysInfo');
+        const dueDateText = document.getElementById('dueDate');
+        const babyEmoji = document.getElementById('babyEmoji');
+        const babySizeText = document.getElementById('babySizeText');
+        const babySpecs = document.getElementById('babySpecs');
+        const biologicalFact = document.getElementById('biologicalFact');
+        const conversationTip = document.getElementById('conversationTip');
+        const milestonesList = document.getElementById('milestonesList');
+        const milestoneModal = document.getElementById('milestoneModal');
+        const modalContent = document.getElementById('modalContent');
+        const currentMarkerLabel = document.getElementById('currentMarkerLabel');
+        const currentMarkerVal = document.getElementById('currentMarkerVal');
+
+        let growthChart;
+
+        function initChart() {
+            const ctx = document.getElementById('growthChart').getContext('2d');
+            growthChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: pregnancyData.map(d => `S${d.week}`),
+                    datasets: [{
+                        data: pregnancyData.map(d => d.size),
+                        borderColor: '#f472b6',
+                        borderWidth: 3,
+                        backgroundColor: 'rgba(244, 114, 182, 0.05)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: { padding: { top: 30 } },
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    scales: { 
+                        x: { grid: { display: false }, ticks: { font: { size: 9 } } },
+                        y: { display: true, beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 9 }, callback: v => v + 'cm' } }
+                    }
+                },
+                plugins: [{
+                    id: 'currentMarker',
+                    afterDraw: (chart) => {
+                        if (chart.currentWeekX !== undefined) {
+                            const {ctx, chartArea: {top, bottom}} = chart;
+                            ctx.save();
+                            ctx.beginPath(); ctx.setLineDash([5, 5]); ctx.strokeStyle = '#f472b6';
+                            ctx.moveTo(chart.currentWeekX, top); ctx.lineTo(chart.currentWeekX, bottom);
+                            ctx.stroke();
+                            ctx.beginPath(); ctx.setLineDash([]); ctx.fillStyle = '#db2777';
+                            ctx.arc(chart.currentWeekX, chart.currentWeekY, 6, 0, Math.PI * 2); ctx.fill();
+                            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
+                            ctx.restore();
+                        }
+                    }
+                }]
+            });
+        }
+
+        function calculate() {
+            if (!dateInput.value) return;
+            const fur = new Date(dateInput.value);
+            const today = new Date();
+            const diffDays = Math.floor((today - fur) / (1000 * 60 * 60 * 24));
+            
+            // Permitimos ver datos aunque la fecha sea futura para planificación,
+            // pero el progreso y semanas se ajustan a 0 si la gestación aún no empezó.
+            const weeks = Math.max(0, Math.floor(diffDays / 7));
+            const exactWeeks = Math.max(0, diffDays / 7);
+            const fpp = new Date(fur); fpp.setDate(fpp.getDate() + 280);
+
+            weeksNumber.innerText = weeks;
+            daysInfo.innerText = diffDays < 0 ? "Gestación aún no iniciada" : `${weeks} semanas y ${diffDays % 7} días`;
+            dueDateText.innerText = fpp.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+            
+            const progress = Math.min(Math.max(0, (diffDays / 280) * 263.9), 263.9);
+            progressCircle.style.strokeDashoffset = 263.9 - progress;
+
+            if (exactWeeks >= 0 && exactWeeks <= 40) {
+                const chartX = growthChart.scales.x;
+                const chartY = growthChart.scales.y;
+                const labels = pregnancyData.map(d => d.week);
+                
+                let xPx = 0;
+                for(let i=0; i < labels.length - 1; i++) {
+                    if(exactWeeks >= labels[i] && exactWeeks <= labels[i+1]) {
+                        const step = chartX.getPixelForValue(growthChart.data.labels[i+1]) - chartX.getPixelForValue(growthChart.data.labels[i]);
+                        const ratio = (exactWeeks - labels[i]) / (labels[i+1] - labels[i]);
+                        xPx = chartX.getPixelForValue(growthChart.data.labels[i]) + (step * ratio);
+                        break;
+                    }
+                }
+                
+                const lower = [...pregnancyData].reverse().find(d => d.week <= exactWeeks);
+                const upper = pregnancyData.find(d => d.week > exactWeeks);
+                const currentSize = upper ? lower.size + (upper.size - lower.size) * ((exactWeeks - lower.week) / (upper.week - lower.week)) : lower.size;
+
+                growthChart.currentWeekX = xPx;
+                growthChart.currentWeekY = chartY.getPixelForValue(currentSize);
+                growthChart.update();
+                
+                currentMarkerLabel.classList.remove('hidden');
+                currentMarkerVal.innerText = currentSize.toFixed(1);
+            } else {
+                currentMarkerLabel.classList.add('hidden');
+                growthChart.currentWeekX = undefined;
+                growthChart.update();
+            }
+            updateUI(weeks);
+        }
+
+        function updateUI(w) {
+            let d = pregnancyData.find(x => x.week === w) || [...pregnancyData].reverse().find(x => w >= x.week) || pregnancyData[0];
+            babyEmoji.innerText = d.emoji;
+            babySizeText.innerText = d.object;
+            babySpecs.innerText = `${d.size} cm | ${d.weight} g aprox.`;
+            biologicalFact.innerText = d.fact;
+            conversationTip.innerText = `"${d.talk}"`;
+            
+            const mil = [
+                {w:12, t:"Eco 12 sem", id: 12},
+                {w:20, t:"Morfológica", id: 20},
+                {w:24, t:"Test Glucosa", id: 24},
+                {w:35, t:"Estreptococo", id: 35}
+            ];
+
+            milestonesList.innerHTML = mil.map(m => `
+                <button onclick="openModal(${m.id})" class="text-center p-3 rounded-xl transition-all active:scale-95 ${w >= m.w ? 'bg-gray-100 opacity-50' : 'bg-pink-50 border border-pink-100 hover:border-pink-300 shadow-sm'}">
+                    <p class="text-[9px] font-bold text-gray-400 uppercase">Sem ${m.w}</p>
+                    <p class="text-[11px] font-bold text-gray-800 leading-tight">${m.t}</p>
+                    <p class="text-[8px] mt-1 text-pink-400 font-bold">DETALLES</p>
+                </button>
+            `).join('');
+
+            if (w <= 12) trimesterName.innerText = "Primer Trimestre";
+            else if (w <= 26) trimesterName.innerText = "Segundo Trimestre";
+            else trimesterName.innerText = "Tercer Trimestre";
+        }
+
+        function openModal(id) {
+            const info = milestonesInfo[id];
+            if (!info) return;
+            modalContent.innerHTML = `
+                <div class="mb-4">
+                    <span class="text-[10px] font-black text-pink-500 uppercase tracking-widest">Información Médica</span>
+                    <h2 class="text-2xl font-bold text-gray-800 mt-1">${info.title}</h2>
+                </div>
+                <p class="text-gray-600 text-sm leading-relaxed mb-6">${info.desc}</p>
+                <div class="space-y-3">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Recurso externo</p>
+                    <a href="${info.wiki}" target="_blank" class="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-xl transition border border-gray-200">
+                        <span class="text-sm font-medium text-gray-700">Ver en Wikipedia</span>
+                        <span class="text-gray-400">→</span>
+                    </a>
+                </div>
+            `;
+            milestoneModal.classList.remove('opacity-0', 'pointer-events-none');
+            document.body.classList.add('modal-active');
+        }
+
+        function closeModal() {
+            milestoneModal.classList.add('opacity-0', 'pointer-events-none');
+            document.body.classList.remove('modal-active');
+        }
+
+        milestoneModal.addEventListener('click', (e) => { if (e.target === milestoneModal) closeModal(); });
+        dateInput.addEventListener('change', calculate);
+
+        window.onload = () => {
+            initChart();
+            // Establecer fecha por defecto: 17 de diciembre de 2025
+            dateInput.value = "2025-12-17";
+            setTimeout(calculate, 300);
+        };
+    </script>
+</body>
+</html>
