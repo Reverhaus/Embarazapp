@@ -9,22 +9,6 @@ Una aplicación web progresiva (PWA) diseñada para el seguimiento del embarazo,
 * **Hitos Médicos:** Panel con enlaces rápidos a las pruebas principales (Eco 12 semanas, ecografía morfológica, etc.).
 * **App PWA (Offline e Instalable):** Al entrar en navegadores móviles (Chrome o Safari) sugerirá la instalación en la pantalla de inicio para funcionar en modo offline gracias a su *Service Worker*.
 
-## 🚀 Despliegue Local
-
-Para que la PWA y su Service Worker puedan ser probados localmente, tienes que servir la carpeta mediante un servidor HTTP básico. Abre la terminal en esta carpeta y lanza:
-
-```bash
-npx http-server -p 8000
-```
-
-O si prefieres usar Python:
-
-```bash
-python -m http.server 8000
-```
-
-A continuación, dirígete a `http://localhost:8000` (o a tu IP de red local para probarlo en el teléfono).
-
 ## 🛠 Tecnologías empleadas
 
 * HTML, Vanilla CSS (`index.html`) y Vanilla JavaScript.
